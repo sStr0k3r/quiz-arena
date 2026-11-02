@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2b1065">
+<title>Quiz Arena</title>
+<style>
+:root{--bg1:#2b1065;--bg2:#6d28d9;--card:rgba(255,255,255,.14);--fg:#fff;--ok:#22c55e;--no:#ef4444;--ac:#fbbf24}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{min-height:100vh;min-height:100dvh;background:#2b1065 linear-gradient(160deg,var(--bg1),var(--bg2)) fixed;color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;text-align:center;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+#app{max-width:560px;margin:0 auto;padding:16px}
+#app.wide{max-width:820px}
+h1{font-size:2.2rem;margin:.4em 0}h2{margin:.5em 0}
+.b{display:block;width:100%;margin:8px 0;padding:14px;font-size:1.05rem;font-weight:700;color:var(--fg);background:var(--card);border:2px solid rgba(255,255,255,.25);border-radius:14px;cursor:pointer;font-family:inherit}
+.b:hover:not(:disabled){background:rgba(255,255,255,.25)}
+.b:disabled{opacity:.45;cursor:not-allowed}
+.b.main{background:var(--ac);color:#2b1065;border-color:var(--ac)}
+.b.ghost{background:transparent}
+.b.ok{background:var(--ok);border-color:var(--ok)}
+.b.no{background:var(--no);border-color:var(--no)}
+.s{opacity:.8;font-size:.9rem}
+.sec{background:var(--card);border-radius:18px;padding:16px;margin:14px 0}
+.sec h2{margin-top:0}
+.top{display:flex;justify-content:space-between;align-items:center;background:var(--card);border-radius:14px;padding:10px 14px;margin-bottom:12px;font-size:1.05rem}
+.big{font-size:2rem;letter-spacing:.15em;font-weight:800;margin:14px 0;word-break:break-all}
+input,select{width:100%;padding:14px;font-size:1.2rem;text-align:center;border-radius:12px;border:2px solid rgba(255,255,255,.3);background:rgba(0,0,0,.25);color:var(--fg);text-transform:uppercase;font-family:inherit}
+select{text-transform:none;font-size:1rem;padding:10px}
+select option{color:#000}
+input#nm{text-transform:none}
+.shake{animation:sh .4s}
+@keyframes sh{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.av{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:10px 0}
+.av button{font-size:1.7rem;padding:6px;border-radius:12px;border:2px solid transparent;background:var(--card);cursor:pointer}
+.av button.sel{border-color:var(--ac);background:rgba(251,191,36,.3)}
+.kb{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.k{padding:10px 0;font-weight:700;border-radius:8px;border:0;background:var(--card);color:var(--fg);cursor:pointer;font-family:inherit}
+.k:disabled{opacity:.25}
+.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin:10px 0}
+.grid button{aspect-ratio:1;font-size:1.3rem;font-weight:800;border-radius:10px;border:0;background:var(--card);color:var(--fg);cursor:pointer;font-family:inherit}
+.grid button.sel{background:var(--ac);color:#2b1065}
+.grid button.fd{background:var(--ok)}
+.words span{display:inline-block;margin:3px;padding:4px 10px;border-radius:99px;background:var(--card)}
+.words .fd{background:var(--ok);text-decoration:line-through}
+.row{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:12px;padding:8px 12px;margin:5px 0;text-align:left}
+.row.me{outline:2px solid var(--ac)}
+.row.off{opacity:.45}
+.row b:first-child{width:2.2em}
+.row .n{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#lb{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0 12px}
+.pod{display:flex;align-items:flex-end;justify-content:center;gap:8px;margin:18px 0}
+.pod>div{flex:1;border-radius:14px 14px 0 0;background:var(--card);padding:10px 4px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2px;overflow:hidden}
+.pod .e{font-size:2.2rem}
+.pod .a2{font-size:1.6rem}
+#qr{display:inline-block;background:#fff;padding:8px;border-radius:14px;margin:8px}
+#qr svg{display:block;width:min(70vw,260px);height:auto}
+.code{font-size:2.4rem;font-weight:900;letter-spacing:.3em;color:var(--ac);padding-left:.3em}
+.pl{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0}
+.pl span{background:var(--card);border-radius:99px;padding:4px 10px}
+.pl span.off{opacity:.45}
+#bn{display:none;position:fixed;top:0;left:0;right:0;z-index:9;background:var(--no);color:#fff;padding:6px;font-size:.9rem;font-weight:700}
+</style>
+</head>
+<body>
+<div id="bn">Reconectando…</div>
+<div id="app"></div>
+<script src="qrcode.js"></script>
+<script>
+'use strict';
+const $=s=>document.querySelector(s),app=$('#app'),view=h=>{app.innerHTML=h};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const rnd=n=>Math.floor(Math.random()*n);
+const shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
+const AV=['🦊','🐼','🐸','🦄','🐙','🐯','🐵','🦉','🐬','🦖','🐧','🐱','🐶','🐰','🦁','🐨','🐲','🦋'];
+const NM=['Trivia','Ahorcado','Palabra revuelta','Sopa de letras','Cálculo rápido'];
+const IC=['🧠','🪢','🔀','🔎','➗'];
+const MAX=50;
+
+/* ---------- datos de los minijuegos ---------- */
+const TQ=[
+["¿Capital de Australia?",["Sídney","Canberra","Melbourne","Perth"],1],
+["¿Cuál es el planeta más grande del sistema solar?",["Saturno","Marte","Júpiter","Neptuno"],2],
+["¿Quién pintó la Mona Lisa?",["Da Vinci","Picasso","Van Gogh","Dalí"],0],
+["¿Cuántos días tiene un año bisiesto?",["364","365","366","367"],2],
+["¿Cuál es el océano más grande?",["Atlántico","Pacífico","Índico","Ártico"],1],
+["¿Qué gas respiramos para vivir?",["Nitrógeno","Helio","Oxígeno","Carbono"],2],
+["¿En qué país está la Torre Eiffel?",["Italia","España","Francia","Alemania"],2],
+["¿Cuál es el río más largo de Sudamérica?",["Amazonas","Magdalena","Orinoco","Paraná"],0],
+["¿Cuántos lados tiene un hexágono?",["5","6","7","8"],1],
+["¿Quién escribió Cien años de soledad?",["Borges","Neruda","García Márquez","Cortázar"],2],
+["¿Qué metal es líquido a temperatura ambiente?",["Mercurio","Hierro","Plomo","Cobre"],0],
+["¿Cuál es el animal terrestre más rápido?",["León","Guepardo","Caballo","Tigre"],1],
+["¿Cuál es el hueso más largo del cuerpo?",["Húmero","Tibia","Fémur","Costilla"],2],
+["¿Qué planeta es conocido como el planeta rojo?",["Venus","Marte","Mercurio","Urano"],1],
+["¿Cuál es el país más grande del mundo?",["Canadá","China","Estados Unidos","Rusia"],3],
+["¿Cuántos jugadores de un equipo hay en la cancha en fútbol?",["9","10","11","12"],2],
+["¿Cuál es el símbolo químico del oro?",["Ag","Au","Go","Or"],1],
+["¿Qué instrumento tiene teclas blancas y negras?",["Guitarra","Violín","Flauta","Piano"],3]];
+const HW=[["PERRO","Animal"],["GUITARRA","Instrumento"],["COLOMBIA","País"],["BICICLETA","Transporte"],["CHOCOLATE","Comida"],["ESCUELA","Lugar"],["PLANETA","Espacio"],["MARIPOSA","Animal"],["PIRATA","Aventura"],["VOLCAN","Naturaleza"]];
+const SW=["CAMISA","VENTANA","PELOTA","CIUDAD","MUSICA","JARDIN","TELEFONO","MONTE","ESTRELLA","CAMINO"];
+const WW=["SOL","MAR","LUNA","CASA","PAN","GATO","RIO","FLOR","NUBE","PEZ","OSO","ARBOL"];
+
+/* ---------- estado ---------- */
+let sess=loadS(),ws=null,retry=0,role=null,code='',S={ph:'lobby',i:0},dl=0,gid=0,lastKey='',t0=0;
+let lobbyList=[],lb=[],bases=[],baseIdx=0,noLan=false;
+const me={p:0,g:0,n:'',a:0};
+function loadS(){try{return JSON.parse(sessionStorage.getItem('qz'))}catch(e){return null}}
+function saveS(){try{sessionStorage.setItem('qz',JSON.stringify(sess))}catch(e){}}
+function clearS(){sess=null;try{sessionStorage.removeItem('qz')}catch(e){}}
+function myId(){let id=null;try{id=sessionStorage.getItem('qzid')}catch(e){}
+  if(!id||!/^[a-z0-9]{6,24}$/.test(id)){id=Array.from(crypto.getRandomValues(new Uint8Array(10)),b=>(b%36).toString(36)).join('');try{sessionStorage.setItem('qzid',id)}catch(e){}}
+  return id}
+
+/* ---------- red ---------- */
+const banner=on=>{$('#bn').style.display=on?'block':'none'};
+const send=o=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(o))};
+function connect(){
+  if(ws&&(ws.readyState===0||ws.readyState===1))return;
+  const sock=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');
+  ws=sock;
+  sock.onopen=()=>{retry=0;banner(false);hello()};
+  sock.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch(x){return}onMsg(m)};
+  sock.onclose=()=>{if(ws===sock&&sess){banner(true);setTimeout(connect,Math.min(5000,500+retry++*700))}};
+  sock.onerror=()=>{};
+}
+function hello(){
+  if(!sess)return;
+  if(sess.role==='h')send({t:'host',code:sess.code,token:sess.token});
+  else send({t:'join',code:sess.code,id:sess.id,n:sess.n,a:sess.a});
+}
+function startSession(){if(ws&&ws.readyState===1)hello();else connect()}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&sess)connect()});
+
+function onMsg(m){
+  switch(m.t){
+    case 'hosted':sess.code=m.code;sess.token=m.token;saveS();code=m.code;role='h';history.replaceState(null,'','#'+code);break;
+    case 'joined':role='p';code=m.code;me.n=m.n;me.a=m.a;sess.n=m.n;sess.a=m.a;saveS();break;
+    case 'lobby':lobbyList=m.list||[];if(role==='h'&&S.ph==='lobby')paintLobby();break;
+    case 'lb':lb=m.r||[];if(role==='h'&&(S.ph==='play'||S.ph==='break'))paintLb();break;
+    case 'state':onState(m);break;
+    case 'tick':dl=Date.now()+(m.ms|0);break;
+    case 'score':me.p=m.p;me.g=m.g;setSc();break;
+    case 'err':onErr(m.e);break;
+  }
+}
+function onErr(e){
+  const msg={noroom:['No encontramos esa partida','Revisa el código o pídele al administrador que cree una nueva.'],
+    full:['Sala llena','Ya hay '+MAX+' jugadores conectados.'],
+    started:['La partida ya comenzó','Solo se puede entrar mientras el administrador no haya iniciado el juego.'],
+    busy:['Servidor ocupado','Intenta de nuevo en unos minutos.']}[e]||['No se pudo continuar','Intenta de nuevo.'];
+  clearS();gid++;
+  if(ws){const w=ws;ws=null;try{w.close()}catch(x){}}
+  banner(false);
+  view(`<h2>${msg[0]}</h2><p>${msg[1]}</p><button class="b main" id="bk">Volver al inicio</button>`);
+  $('#bk').onclick=newGame;
+}
+function newGame(){
+  clearS();role=null;gid++;lastKey='';S={ph:'lobby',i:0};me.p=me.g=0;lobbyList=[];lb=[];
+  if(ws){const w=ws;ws=null;try{w.close()}catch(x){}}
+  banner(false);history.replaceState(null,'',location.pathname);home();
+}
+
+function onState(m){
+  S={ph:m.ph,i:m.i};dl=Date.now()+(m.ms|0);
+  if(m.p!=null){me.p=m.p;me.g=m.g}
+  const key=m.ph+':'+m.i;
+  if(key===lastKey)return;lastKey=key;
+  if(role==='h'){
+    app.classList.add('wide');
+    if(m.ph==='lobby')hostLobby();
+    else if(m.ph==='end'){gid++;view('<h1>🏁 Resultados finales</h1>'+podium(m.r||[],-1)+'<button class="b main" id="nw">Nueva partida</button>');$('#nw').onclick=newGame}
+    else hostPlay();
+  }else if(role==='p'){
+    if(m.ph==='lobby')waitView();
+    else if(m.ph==='play'){const g=++gid;view(`<div class="top"><span>${IC[m.i]} ${NM[m.i]}</span><b id="tmr"></b><b id="sc">${me.p}</b></div><div id="gb"></div>`);[G0,G1,G2,G3,G4][m.i](g)}
+    else if(m.ph==='break'){gid++;view(`<h1>⏱ ¡Tiempo!</h1><h2>Tu puntaje: ${me.p}</h2><p>Siguiente: ${IC[m.i+1]} ${NM[m.i+1]}</p><div class="top"><span>Empieza en</span><b id="tmr"></b></div>`)}
+    else if(m.ph==='end'){gid++;view('<h1>🏁 Resultados finales</h1>'+podium(m.r||[],m.me==null?-1:m.me)+'<button class="b ghost" id="nw">Salir</button>');$('#nw').onclick=newGame}
+  }
+  paintTimer();
+}
+
+/* ---------- inicio ---------- */
+function home(){
+  gid++;lastKey='';role=null;app.classList.remove('wide');
+  const h=location.hash.slice(1).toUpperCase().replace(/[^A-Z]/g,'').slice(0,4);
+  view(`<h1>🎮 Quiz Arena</h1><p class="s">Hasta ${MAX} jugadores · 5 minijuegos de 2 minutos · gana quien más rápido y más avance logre.</p>
+  <div class="sec"><h2>🙋 Unirse a una partida</h2><p class="s">Escribe el código de 4 letras o escanea el QR del administrador.</p><input id="cd" maxlength="4" placeholder="CÓDIGO" value="${esc(h)}" style="letter-spacing:.3em" autocomplete="off" autocapitalize="characters"><button class="b main" id="jn">Unirme</button></div>
+  <div class="sec"><h2>🛠 Crear una partida</h2><p class="s">Serás el administrador: verás el QR, los puntajes y decides cuándo iniciar.</p><button class="b main" id="mk">Crear partida</button></div>`);
+  const cd=$('#cd');
+  cd.oninput=()=>{cd.value=cd.value.toUpperCase().replace(/[^A-Z]/g,'')};
+  const go=()=>{const c=cd.value.trim().toUpperCase();if(c.length!==4){cd.classList.add('shake');setTimeout(()=>cd.classList.remove('shake'),400);return}joinView(c)};
+  $('#jn').onclick=go;cd.onkeydown=e=>{if(e.key==='Enter')go()};
+  $('#mk').onclick=()=>{sess={role:'h'};saveS();role='h';view('<h2>Creando partida…</h2>');startSession()};
+}
+
+/* ---------- administrador ---------- */
+async function loadBases(){
+  if(bases.length)return;
+  let info={};
+  try{info=await (await fetch('/info',{cache:'no-store'})).json()}catch(e){}
+  const local=['localhost','127.0.0.1','[::1]','::1'].includes(location.hostname);
+  const lan=info.lan||[];
+  if(info.publicUrl)bases=[info.publicUrl];
+  else if(local&&lan.length)bases=lan.map(ip=>location.protocol+'//'+ip+':'+(info.port||location.port||80));
+  else bases=[location.origin];
+  noLan=local&&!lan.length&&!info.publicUrl;baseIdx=0;
+}
+async function hostLobby(){
+  await loadBases();
+  if(role!=='h'||S.ph!=='lobby')return;
+  const url=()=>bases[baseIdx]+'/#'+code;
+  view(`<h1>🎮 Quiz Arena</h1><p>Escanea para unirte</p><div id="qr">${qrSvg(url(),260)}</div><div class="code">${code}</div><p class="s" id="ul">${esc(url())}</p>
+  ${bases.length>1?`<p class="s">Dirección para los celulares (misma red WiFi):</p><select id="bs">${bases.map((b,i)=>`<option value="${i}">${esc(b)}</option>`).join('')}</select>`:''}
+  ${noLan?'<p class="s">⚠️ No se detectó una red local: los celulares no podrán abrir esta dirección.</p>':''}
+  <h2><span id="cnt">0</span> / ${MAX} jugadores</h2><div class="pl" id="pl"></div><button class="b main" id="st" disabled>▶ Iniciar juego</button>`);
+  const bs=$('#bs');
+  if(bs)bs.onchange=()=>{baseIdx=+bs.value;$('#qr').innerHTML=qrSvg(url(),260);$('#ul').textContent=url()};
+  $('#st').onclick=()=>send({t:'start'});
+  paintLobby();
+}
+function paintLobby(){
+  const c=$('#cnt');if(!c)return;
+  c.textContent=lobbyList.length;
+  $('#pl').innerHTML=lobbyList.map(o=>`<span class="${o.on?'':'off'}">${AV[o.a]||'🙂'} ${esc(o.n)}</span>`).join('')||'<span class="s">Esperando jugadores…</span>';
+  $('#st').disabled=!lobbyList.length;
+}
+function hostPlay(){
+  const b=S.ph==='break';
+  view(`<div class="top"><span>${IC[S.i]} ${NM[S.i]} (${S.i+1}/5)</span><b id="tmr"></b></div>${b?`<h2>⏱ ¡Tiempo! Siguiente: ${IC[S.i+1]} ${NM[S.i+1]}</h2>`:''}<button class="b ghost" id="sk">${b?'Saltar descanso':'Saltar minijuego'}</button><div id="lb"></div>`);
+  $('#sk').onclick=()=>send({t:'skip'});paintLb();
+}
+function paintLb(){
+  const e=$('#lb');if(!e)return;
+  e.innerHTML=lb.map((o,k)=>`<div class="row ${o.on?'':'off'}"><b>${k+1}</b><span>${AV[o.a]||'🙂'}</span><span class="n">${esc(o.n)}</span><span class="s">✔${o.g}</span><b>${o.p}</b></div>`).join('')||'<p class="s">Sin jugadores</p>';
+}
+
+/* ---------- jugador ---------- */
+function joinView(c){
+  let sel=rnd(AV.length);
+  view(`<h1>🎮 Quiz Arena</h1><p>Sala <b>${esc(c)}</b></p><input id="nm" maxlength="14" placeholder="Tu nombre" autocomplete="off"><p class="s">Elige tu avatar</p><div class="av">${AV.map((e,i)=>`<button data-i="${i}" class="${i===sel?'sel':''}">${e}</button>`).join('')}</div><button class="b main" id="go">¡Entrar!</button><button class="b ghost" id="bk">← Volver</button>`);
+  document.querySelectorAll('.av button').forEach(b=>b.onclick=()=>{sel=+b.dataset.i;document.querySelectorAll('.av button').forEach(x=>x.classList.toggle('sel',x===b))});
+  $('#bk').onclick=()=>{history.replaceState(null,'',location.pathname);home()};
+  $('#go').onclick=()=>{
+    const n=$('#nm').value.trim()||'Jugador';
+    sess={role:'p',code:c,id:myId(),n:n,a:sel};saveS();role='p';
+    view('<h2>Conectando…</h2>');startSession();
+  };
+}
+function waitView(){gid++;view(`<h1 style="font-size:4rem;margin:.2em">${AV[me.a]||'🙂'}</h1><h2>${esc(me.n)}</h2><p>Conectado. Esperando a que el administrador inicie el juego…</p>`)}
+function setSc(){const e=$('#sc');if(e)e.textContent=me.p}
+const el=()=>(performance.now()-t0)/1000;
+function award(secs){const s=Math.max(0.6,secs);me.p+=100+Math.max(0,Math.round(50-s*2.5));me.g++;setSc();send({t:'ok',s:secs})}
+
+/* ---------- minijuegos ---------- */
+function G0(g){const q=shuf(TQ);let k=0;
+  const next=()=>{if(g!==gid)return;const [t,o,c]=q[k++%q.length],op=shuf(o.map((x,i)=>[x,i===c]));t0=performance.now();
+    $('#gb').innerHTML=`<h2>${esc(t)}</h2>`+op.map((x,i)=>`<button class="b" data-i="${i}">${esc(x[0])}</button>`).join('');
+    const bs=document.querySelectorAll('#gb [data-i]');
+    bs.forEach(b=>b.onclick=()=>{bs.forEach(x=>{x.disabled=true;if(op[x.dataset.i][1])x.classList.add('ok')});if(op[b.dataset.i][1])award(el());else b.classList.add('no');setTimeout(next,900)})};
+  next()}
+function G1(g){const q=shuf(HW);let k=0;
+  const next=()=>{if(g!==gid)return;const [w,h]=q[k++%q.length],used=new Set();let lives=6;t0=performance.now();
+    const draw=()=>{if(g!==gid)return;
+      const sh=[...w].map(c=>used.has(c)?c:'_').join(' '),won=!sh.includes('_');
+      $('#gb').innerHTML=`<p class="s">Pista: ${esc(h)}</p><div class="big">${sh}</div><p>${'❤️'.repeat(lives)}${'🖤'.repeat(6-lives)}</p><div class="kb">${[...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(c=>`<button class="k" ${used.has(c)||won||!lives?'disabled':''} data-c="${c}">${c}</button>`).join('')}</div>`;
+      if(won){award(el());return void setTimeout(next,900)}
+      if(!lives){$('#gb').insertAdjacentHTML('afterbegin',`<p>Era <b>${w}</b></p>`);return void setTimeout(next,1400)}
+      document.querySelectorAll('.k').forEach(b=>b.onclick=()=>{used.add(b.dataset.c);if(!w.includes(b.dataset.c))lives--;draw()})};
+    draw()};
+  next()}
+function G2(g){const q=shuf(SW);let k=0;
+  const next=()=>{if(g!==gid)return;const w=q[k++%q.length];let s=w;while(s===w)s=shuf([...w]).join('');t0=performance.now();
+    $('#gb').innerHTML=`<p class="s">Ordena las letras para formar la palabra</p><div class="big">${[...s].join(' ')}</div><input id="ans" autocomplete="off" autocapitalize="characters"><button class="b main" id="ok">Responder</button><button class="b ghost" id="sk">Pasar</button>`;
+    const chk=()=>{const a=$('#ans');if(!a)return;if(a.value.trim().toUpperCase()===w){award(el());next()}else{a.classList.add('shake');setTimeout(()=>a.classList.remove('shake'),400)}};
+    $('#ok').onclick=chk;$('#ans').onkeydown=e=>{if(e.key==='Enter')chk()};$('#sk').onclick=next};
+  next()}
+function G3(g){const N=6,A='ABCDEFGHILMNOPRSTUV';
+  const next=()=>{if(g!==gid)return;const G=Array(N*N).fill(''),pl=[];
+    shuf(WW).slice(0,3).forEach(w=>{for(let t=0;t<200;t++){const h=rnd(2),r=rnd(N-(h?0:w.length-1)),c=rnd(N-(h?w.length-1:0)),ix=[...w].map((_,i)=>h?r*N+c+i:(r+i)*N+c);if(ix.every((x,i)=>!G[x]||G[x]===w[i])){ix.forEach((x,i)=>G[x]=w[i]);pl.push(w);return}}});
+    for(let i=0;i<N*N;i++)G[i]=G[i]||A[rnd(A.length)];
+    const fd=new Set(),fc=new Set();let sel=[];t0=performance.now();
+    const draw=()=>{if(g!==gid)return;
+      $('#gb').innerHTML=`<p class="s">Toca las letras en orden (→ o ↓) para formar cada palabra</p><div class="words">${pl.map(w=>`<span class="${fd.has(w)?'fd':''}">${w}</span>`).join('')}</div><div class="grid">${G.map((c,i)=>`<button data-i="${i}" class="${sel.includes(i)?'sel':fc.has(i)?'fd':''}">${c}</button>`).join('')}</div><button class="b ghost" id="cl">Borrar selección</button>`;
+      $('#cl').onclick=()=>{sel=[];draw()};
+      document.querySelectorAll('.grid button').forEach(b=>b.onclick=()=>{sel.push(+b.dataset.i);const s=sel.map(i=>G[i]).join('');
+        if(pl.includes(s)&&!fd.has(s)){fd.add(s);sel.forEach(i=>fc.add(i));sel=[];award(el());t0=performance.now();if(fd.size===pl.length)return void setTimeout(next,700)}
+        else if(sel.length>=5)sel=[];
+        draw()})};
+    draw()};
+  next()}
+function G4(g){
+  const next=()=>{if(g!==gid)return;const o=rnd(3);let a=2+rnd(o===1?10:40),b=2+rnd(o===1?9:30);if(o===2&&a<b)[a,b]=[b,a];
+    const ans=o===0?a+b:o===1?a*b:a-b,sy=['+','×','−'][o],ops=new Set([ans]);
+    while(ops.size<4)ops.add(ans+(rnd(2)?1:-1)*(1+rnd(9)));
+    t0=performance.now();
+    $('#gb').innerHTML=`<div class="big">${a} ${sy} ${b} = ?</div>`+shuf([...ops]).map(v=>`<button class="b" data-v="${v}">${v}</button>`).join('');
+    const bs=document.querySelectorAll('#gb [data-v]');
+    bs.forEach(x=>x.onclick=()=>{bs.forEach(y=>{y.disabled=true;if(+y.dataset.v===ans)y.classList.add('ok')});if(+x.dataset.v===ans)award(el());else x.classList.add('no');setTimeout(next,700)})};
+  next()}
+
+/* ---------- podio ---------- */
+function podium(r,mi){
+  const t=r.slice(0,3),ord=[1,0,2].filter(i=>t[i]),H=[210,165,135],M=['🥇','🥈','🥉'];
+  return `<div class="pod">${ord.map(i=>`<div style="height:${H[i]}px"><div class="e">${M[i]}</div><div class="a2">${AV[t[i][1]]||'🙂'}</div><b>${esc(t[i][0])}</b><div>${t[i][2]} pts</div></div>`).join('')}</div>`
+   +(mi>=0&&r[mi]?`<h2>Quedaste en el puesto ${mi+1} con ${r[mi][2]} pts</h2>`:'')
+   +r.map((x,k)=>`<div class="row ${k===mi?'me':''}"><b>${k+1}</b><span>${AV[x[1]]||'🙂'}</span><span class="n">${esc(x[0])}</span><span class="s">✔${x[3]}</span><b>${x[2]}</b></div>`).join('');
+}
+
+/* ---------- reloj y arranque ---------- */
+function paintTimer(){const t=$('#tmr');if(t){const s=Math.max(0,Math.ceil((dl-Date.now())/1000));t.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}}
+setInterval(paintTimer,500);
+(function init(){
+  const h=location.hash.slice(1).toUpperCase().replace(/[^A-Z]/g,'');
+  if(sess&&(sess.role==='h'||!h||h===sess.code)){
+    role=sess.role==='h'?'h':'p';
+    if(role==='p'){me.n=sess.n||'';me.a=sess.a|0}
+    app.classList.toggle('wide',role==='h');
+    view('<h2>Reconectando…</h2>');connect();
+  }else{clearS();home()}
+})();
+</script>
+</body>
+</html>
